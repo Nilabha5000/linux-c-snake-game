@@ -15,7 +15,7 @@ int getch(void) {
     return ch;
 }
 
-#define WIDTH 50
+#define WIDTH 100
 #define HEIGHT 50
 #define LEFT 'a'
 #define RIGHT 'd'
@@ -38,7 +38,12 @@ typedef struct{
 }fruit;
 
 int score = 0;
+
 snake *initSnake();
+char **initScr();
+void renderScr(char **);
+void updateScr(char ** , snake * , fruit *);
+void destroyScr(char**);
 void destroySnake(snake *);
 void input(snake * ,int *);
 void addSegment(snake *);
@@ -46,14 +51,56 @@ void output(snake * , fruit *);
 void logic(snake * , fruit *, int *);
 void updateSnake(snake *);
 
+char **initScr(){
+    char **scr = (char**)malloc(sizeof(char*)*HEIGHT);
+    for(int i = 0; i < HEIGHT; ++i){
+          scr[i] = (char*)malloc(sizeof(char)*WIDTH);
+    }
+    return scr;
+}
+void updateScr(char **scr , snake *s , fruit * f){
+      snake_segment *temp = s->head;
+      for(int i = 0; i < HEIGHT; ++i){
+            for(int j = 0; j < WIDTH; ++j){
+                if(i == 0 || j == WIDTH-1 || i == HEIGHT-1 || j == 0)
+                  scr[i][j] = '+';
+                else
+                 scr[i][j] = ' ';
+            }
+      }
+     scr[f->y][f->x] = 'F';
+     int ishead = 1;
+    while(temp != NULL){
+         if(temp->x >= 0 && temp->x <= WIDTH-1 && temp->y >= 0 && temp->y <= HEIGHT-1)
+              scr[temp->y][temp->x] = (ishead) ? 'O' : 'o';
+           temp = temp->next;
+           ishead = 0;
+    }
+}
+
+void renderScr(char **screen){
+        printf("score : %d\n",score);
+        for(int i = 0; i < HEIGHT; ++i){
+           for(int j = 0; j < WIDTH; ++j){
+                 printf("%c",screen[i][j]);
+           }
+           printf("\n");
+      }
+}
+void destroyScr(char **scr){
+     for(int i = 0; i < HEIGHT; ++i)
+         free(scr[i]);
+     free(scr);
+}
 snake *initSnake(){
      // allocating a default snake head
      snake_segment *head = (snake_segment*)malloc(sizeof(snake_segment));
      // allocating a snake object
      snake *s = (snake*)malloc(sizeof(snake));
-     //assigning the head coordinates
+     //assigning the head coordinates and default direction
      head->x = (WIDTH-1)/2;
      head->y = (HEIGHT-1)/2;
+     head->direction = UP;
      //initially the snake has no head so assigning s.head and s.tail by head
      s->head = s->tail = head;
      //assigning a default speed
@@ -64,6 +111,8 @@ snake *initSnake(){
 void addSegment(snake *snake1){
        //allocating a new segment
        snake_segment *newSegment = (snake_segment*)malloc(sizeof(snake_segment));
+       //assigning NULL to the next pointer
+       newSegment->next = NULL;
        //adding a new segment to its tail
        snake1->tail->next = newSegment;
        //updating the tail pointer
@@ -86,6 +135,15 @@ void destroySnake(snake * s){
 void input(snake *snake1 , int *gameOver){
     
     int direction = (char)getch();
+      if(((direction == DOWN && snake1->head->direction == UP)) || 
+         (direction == UP && snake1->head->direction == DOWN) || 
+              (direction == LEFT && snake1->head->direction == RIGHT) ||
+               (direction == RIGHT && snake1->head->direction == LEFT)){
+        // Prevent the snake from moving in the opposite direction
+        // This avoids immediate self-collision
+        return;
+    }
+       
     switch(direction){
       case LEFT:
          snake1->head->direction = LEFT;
@@ -168,44 +226,6 @@ void updateSnake(snake *snake1){
         prevY = tempY;
         prevDir = tempDir;
     }
-} 
-void output(snake *snake1 ,fruit *f){
-     
-     printf("Score : %d\n",score);
-
-
-    for(int i = 0; i < HEIGHT; ++i){
-
-       for(int j = 0; j < WIDTH; ++j){
-           int printed = 0;
-           if(i == 0 || j == 0 || i == HEIGHT-1 || j == WIDTH-1){
-                 printf("+");
-                 continue;
-           }
-            
-           else if(i == f->y && j == f->x){
-              printf("A");
-              continue;
-           }  
-          
-	     else{
-               for(snake_segment *k = snake1->head; k != NULL; k = k->next){
-                    if(k == snake1->head && (k->x == j && k->y == i)){
-                           printf("O");
-                           printed = 1;
-                    }
-                    else if(k->x == j && k->y == i){
-                            printf("o");
-                            printed = 1;
-                    }
-               }
-              if(!printed)
-              printf(" ");  
-           }   
-       }
-        printf("\n");
-    }
-
 }
 int main(){
 
@@ -214,16 +234,19 @@ int main(){
       fruit f1;
       f1.x = snake1->head->x;
       f1.y = snake1->head->y-5;
+      char **screen = initScr();
       system("clear");
       while(!gameOver){
-        
-         logic(snake1, &f1, &gameOver);
-         output(snake1, &f1);
-         input(snake1, &gameOver);
          updateSnake(snake1);
+         updateScr(screen , snake1 , &f1);
+         logic(snake1, &f1, &gameOver);
+         renderScr(screen);
+         input(snake1, &gameOver);
+         
          system("clear");
       }
      destroySnake(snake1);
+     destroyScr(screen);
      printf("Game Over \n\n");
      return 0;
 }
