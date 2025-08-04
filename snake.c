@@ -17,22 +17,19 @@ int getch(void) {
 
 #define WIDTH 50
 #define HEIGHT 50
-
-#define MAXLEN 50
-
 #define LEFT 'a'
 #define RIGHT 'd'
 #define UP 'w'
 #define DOWN 's'
-typedef struct {
+typedef struct snake_segment{
      int x;
      int y;
      int direction;
+     struct snake_segment *next;
 }snake_segment;
 
 typedef struct{
-     snake_segment *body;
-     int bodylength;
+     snake_segment *head , *tail;
      int speed;
 }snake;
 typedef struct{
@@ -44,41 +41,63 @@ int score = 0;
 snake *initSnake();
 void destroySnake(snake *);
 void input(snake * ,int *);
+void addSegment(snake *);
 void output(snake * , fruit *);
 void logic(snake * , fruit *, int *);
 void updateSnake(snake *);
 
 snake *initSnake(){
-     snake_segment *sb = (snake_segment*)malloc(sizeof(snake_segment)*MAXLEN);
+     // allocating a default snake head
+     snake_segment *head = (snake_segment*)malloc(sizeof(snake_segment));
+     // allocating a snake object
      snake *s = (snake*)malloc(sizeof(snake));
-     s->body = sb;
-     s->bodylength = 0;
-     s->body[0].x = (WIDTH-1)/2;
-     s->body[0].y = (HEIGHT-1)/2;
+     //assigning the head coordinates
+     head->x = (WIDTH-1)/2;
+     head->y = (HEIGHT-1)/2;
+     //initially the snake has no head so assigning s.head and s.tail by head
+     s->head = s->tail = head;
+     //assigning a default speed
      s->speed = 1;
      return s;
 }
 
-
+void addSegment(snake *snake1){
+       //allocating a new segment
+       snake_segment *newSegment = (snake_segment*)malloc(sizeof(snake_segment));
+       //adding a new segment to its tail
+       snake1->tail->next = newSegment;
+       //updating the tail pointer
+       snake1->tail = snake1->tail->next;
+       updateSnake(snake1);
+}
 void destroySnake(snake * s){
-      free(s->body);
+      snake_segment *prev , *curr;
+      prev = NULL; 
+      curr = s->head;
+     // deallocating all the nodes of the linked list
+      while(curr != NULL){
+           prev = curr;
+           curr = curr->next;
+           free(prev);
+      }
+      // deallocate the snake object
       free(s);
 }
 void input(snake *snake1 , int *gameOver){
     
-    int c = (char)getch();
-    switch(c){
+    int direction = (char)getch();
+    switch(direction){
       case LEFT:
-         snake1->body[0].direction = LEFT;
+         snake1->head->direction = LEFT;
          break ;
       case RIGHT:
-         snake1->body[0].direction = RIGHT;
+         snake1->head->direction  = RIGHT;
          break;
       case UP:
-         snake1->body[0].direction = UP;
+         snake1->head->direction  = UP;
          break;
      case DOWN:
-         snake1->body[0].direction = DOWN;
+         snake1->head->direction  = DOWN;
          break;
      case 'q':
        *gameOver = 1;
@@ -87,15 +106,15 @@ void input(snake *snake1 , int *gameOver){
    }
 }
 void logic(snake *snake1, fruit *f ,int *gameOver){
-      if(snake1->body[0].x == 0 || snake1->body[0].y == HEIGHT-1 || snake1->body[0].x == WIDTH-1 || snake1->body[0].y == 0)
+      if(snake1->head->x == 0 || snake1->head->y == HEIGHT-1 || snake1->head->x == WIDTH-1 || snake1->head->y == 0)
       {
           *gameOver = 1;
            return;
       }
     // collision logic
-    if(snake1->body[0].x == f->x && snake1->body[0].y == f->y)
+    if(snake1->head->x == f->x && snake1->head->y == f->y)
     {
-        snake1->bodylength++;
+       addSegment(snake1);
        f->x = rand()%(WIDTH-1);
        f->y = rand()%(HEIGHT-1);
        
@@ -103,8 +122,8 @@ void logic(snake *snake1, fruit *f ,int *gameOver){
        return;
     }
     // logic for self collition
-      for(int i = 1; i < snake1->bodylength; ++i){
-           if(snake1->body[0].x == snake1->body[i].x && snake1->body[0].y == snake1->body[i].y){
+      for(snake_segment *i = snake1->head->next; i != NULL; i = i->next){
+           if(snake1->head->x == i->x && snake1->head->y == i->y){
                  *gameOver = 1;
                  printf("self collied \n");
                 getch(); // Wait for user input before exiting
@@ -115,35 +134,35 @@ void logic(snake *snake1, fruit *f ,int *gameOver){
 void updateSnake(snake *snake1){
   
     // Store previous positions
-    int prevX = snake1->body[0].x;
-    int prevY = snake1->body[0].y;
-    int prevDir = snake1->body[0].direction;
+    int prevX = snake1->head->x;
+    int prevY = snake1->head->y;
+    int prevDir = snake1->head->direction;
 
     // Move head
-    switch (snake1->body[0].direction) {
+    switch (snake1->head->direction) {
         case LEFT:
-            snake1->body[0].x -= 1;
+            snake1->head->x -= 1;
             break;
         case RIGHT:
-            snake1->body[0].x += 1;
+            snake1->head->x += 1;
             break;
         case UP:
-            snake1->body[0].y -= 1;
+            snake1->head->y -= 1;
             break;
         case DOWN:
-            snake1->body[0].y += 1;
+            snake1->head->y += 1;
             break;
     }
     
     // Move the rest of the body
-    for (int i = 1; i <= snake1->bodylength; ++i) {
-        int tempX = snake1->body[i].x;
-        int tempY = snake1->body[i].y;
-        int tempDir = snake1->body[i].direction;
+    for (snake_segment *i = snake1->head->next; i != NULL; i = i->next) {
+        int tempX = i->x;
+        int tempY = i->y;
+        int tempDir = i->direction;
 
-        snake1->body[i].x = prevX;
-        snake1->body[i].y = prevY;
-        snake1->body[i].direction = prevDir;
+        i->x = prevX;
+        i->y = prevY;
+        i->direction = prevDir;
 
         prevX = tempX;
         prevY = tempY;
@@ -170,12 +189,12 @@ void output(snake *snake1 ,fruit *f){
            }  
           
 	     else{
-               for(int k = 0; k <= snake1->bodylength; ++k){
-                    if(k == 0 && (snake1->body[k].x == j && snake1->body[k].y == i)){
+               for(snake_segment *k = snake1->head; k != NULL; k = k->next){
+                    if(k == snake1->head && (k->x == j && k->y == i)){
                            printf("O");
                            printed = 1;
                     }
-                    else if(snake1->body[k].x == j && snake1->body[k].y == i){
+                    else if(k->x == j && k->y == i){
                             printf("o");
                             printed = 1;
                     }
@@ -193,8 +212,8 @@ int main(){
       int gameOver = 0;
       snake *snake1 = initSnake();
       fruit f1;
-      f1.x = snake1->body[0].x;
-      f1.y = snake1->body[0].y-5;
+      f1.x = snake1->head->x;
+      f1.y = snake1->head->y-5;
       system("clear");
       while(!gameOver){
         
