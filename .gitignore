@@ -1,1 +1,4 @@
 snake
+*.exe
+*.o
+*.out

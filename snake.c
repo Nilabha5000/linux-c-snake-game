@@ -47,10 +47,9 @@ void destroyScr(char**);
 void destroySnake(snake *);
 void input(snake * ,int *);
 void addSegment(snake *);
-void output(snake * , fruit *);
 void logic(snake * , fruit *, int *);
 void updateSnake(snake *);
-
+//this function is use to allocates the screen buffer in the memory
 char **initScr(){
     char **scr = (char**)malloc(sizeof(char*)*HEIGHT);
     for(int i = 0; i < HEIGHT; ++i){
@@ -58,6 +57,7 @@ char **initScr(){
     }
     return scr;
 }
+//updates the screen buffer
 void updateScr(char **scr , snake *s , fruit * f){
       snake_segment *temp = s->head;
       for(int i = 0; i < HEIGHT; ++i){
@@ -77,7 +77,7 @@ void updateScr(char **scr , snake *s , fruit * f){
            ishead = 0;
     }
 }
-
+// this function display the screen contents in the terminal
 void renderScr(char **screen){
         printf("score : %d\n",score);
         for(int i = 0; i < HEIGHT; ++i){
@@ -87,6 +87,7 @@ void renderScr(char **screen){
            printf("\n");
       }
 }
+//this function deallocates the screen buffer in the memory
 void destroyScr(char **scr){
      for(int i = 0; i < HEIGHT; ++i)
          free(scr[i]);
@@ -101,23 +102,26 @@ snake *initSnake(){
      head->x = (WIDTH-1)/2;
      head->y = (HEIGHT-1)/2;
      head->direction = UP;
+     head->next = NULL;
      //initially the snake has no head so assigning s.head and s.tail by head
      s->head = s->tail = head;
      //assigning a default speed
      s->speed = 1;
      return s;
 }
-
+//this function adds the new segments to the snake
 void addSegment(snake *snake1){
        //allocating a new segment
        snake_segment *newSegment = (snake_segment*)malloc(sizeof(snake_segment));
        //assigning NULL to the next pointer
        newSegment->next = NULL;
+       //setting cordinates to new segment
+       newSegment->x = snake1->tail->x;
+       newSegment->y = snake1->tail->y;
        //adding a new segment to its tail
        snake1->tail->next = newSegment;
        //updating the tail pointer
        snake1->tail = snake1->tail->next;
-       updateSnake(snake1);
 }
 void destroySnake(snake * s){
       snake_segment *prev , *curr;
