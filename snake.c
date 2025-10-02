@@ -38,7 +38,7 @@ typedef struct{
 }fruit;
 
 int score = 0;
-
+int maxScore = 0;
 snake *initSnake();
 char **initScr();
 void renderScr(char **);
@@ -49,6 +49,7 @@ void input(snake * ,int *);
 void addSegment(snake *);
 void logic(snake * , fruit *, int *);
 void updateSnake(snake *);
+void addHighScore();
 //this function is use to allocates the screen buffer in the memory
 char **initScr(){
     char **scr = (char**)malloc(sizeof(char*)*HEIGHT);
@@ -77,9 +78,33 @@ void updateScr(char **scr , snake *s , fruit * f){
            ishead = 0;
     }
 }
+
+void addHighScore(){
+    FILE *scoreFile = fopen("score.bin", "rb");
+    if(scoreFile == NULL){
+        scoreFile = fopen("score.bin","wb");
+        fwrite(&score,sizeof(int),1,scoreFile);
+        fclose(scoreFile);
+    }
+    else{
+
+        if(maxScore < score){
+            maxScore = score;
+            fclose(scoreFile);
+            scoreFile = fopen("score.bin", "wb");
+            fwrite(&maxScore,sizeof(int),1,scoreFile);
+            printf("hurrr re new score \n");
+        }
+        
+        fclose(scoreFile);
+    }
+
+}
 // this function display the screen contents in the terminal
 void renderScr(char **screen){
-        printf("score : %d\n",score);
+        
+        printf("score : %d\t",score);
+        printf("max score :%d\n",maxScore);
         for(int i = 0; i < HEIGHT; ++i){
            for(int j = 0; j < WIDTH; ++j){
                  printf("%c",screen[i][j]);
@@ -94,6 +119,11 @@ void destroyScr(char **scr){
      free(scr);
 }
 snake *initSnake(){
+    FILE *scoreFile = fopen("score.bin","rb");
+    if(scoreFile != NULL){
+        fread(&maxScore,sizeof(int),1 , scoreFile);
+        fclose(scoreFile);
+    }
      // allocating a default snake head
      snake_segment *head = (snake_segment*)malloc(sizeof(snake_segment));
      // allocating a snake object
@@ -176,10 +206,22 @@ void logic(snake *snake1, fruit *f ,int *gameOver){
     // collision logic
     if(snake1->head->x == f->x && snake1->head->y == f->y)
     {
+        
        addSegment(snake1);
-       f->x = rand()%(WIDTH-1);
-       f->y = rand()%(HEIGHT-1);
-       
+       int x = rand()%(WIDTH);
+       int y = rand()%(HEIGHT);
+       // check for boundaries
+       // if the fruit spawns on the boundary then move it inside the boundary
+       if(x == 0)
+          x += 10;
+        else if(y == 0)
+           y += 10;
+        else if(x == WIDTH-1)
+             x -= 10;
+        else if(y == HEIGHT-1)
+            y -= 10;
+        f->x = x;
+        f->y = y;
        score++;
        return;
     }
@@ -249,8 +291,10 @@ int main(){
          
          system("clear");
       }
+    
      destroySnake(snake1);
      destroyScr(screen);
+     addHighScore();
      printf("Game Over \n\n");
      return 0;
 }
