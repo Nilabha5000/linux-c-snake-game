@@ -50,6 +50,7 @@ void addSegment(snake *);
 void logic(snake * , fruit *, int *);
 void updateSnake(snake *);
 void addHighScore();
+void beep();
 //this function is use to allocates the screen buffer in the memory
 char **initScr(){
     char **scr = (char**)malloc(sizeof(char*)*HEIGHT);
@@ -201,6 +202,7 @@ void logic(snake *snake1, fruit *f ,int *gameOver){
       if(snake1->head->x == 0 || snake1->head->y == HEIGHT-1 || snake1->head->x == WIDTH-1 || snake1->head->y == 0)
       {
           *gameOver = 1;
+          system("aplay omg.wav &");
            return;
       }
     // collision logic
@@ -223,14 +225,15 @@ void logic(snake *snake1, fruit *f ,int *gameOver){
         f->x = x;
         f->y = y;
        score++;
+         system("aplay eat.wav &");
        return;
     }
     // logic for self collition
       for(snake_segment *i = snake1->head->next; i != NULL; i = i->next){
            if(snake1->head->x == i->x && snake1->head->y == i->y){
                  *gameOver = 1;
-                 printf("self collied \n");
-                getch(); // Wait for user input before exiting
+                 printf("self collided \n");
+                 system("aplay omg.wav &");
                  return;
            }
       }
