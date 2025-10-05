@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 /* reads from keypress, doesn't echo */
 int getch(void) {
     struct termios oldattr, newattr;
@@ -15,8 +16,10 @@ int getch(void) {
     return ch;
 }
 
-#define WIDTH 100
-#define HEIGHT 50
+int WIDTH = 0;
+int HEIGHT = 0;
+int T_WIDTH = 0;
+int T_HEIGHT = 0;
 #define LEFT 'a'
 #define RIGHT 'd'
 #define UP 'w'
@@ -41,8 +44,10 @@ int score = 0;
 int maxScore = 0;
 snake *initSnake();
 char **initScr();
+char **reInitScr(char **, snake *, fruit *);
+int isTerminalChanged();
 void renderScr(char **);
-void updateScr(char ** , snake * , fruit *);
+char** updateScr(char ** , snake * , fruit *);
 void destroyScr(char**);
 void destroySnake(snake *);
 void input(snake * ,int *);
@@ -50,9 +55,85 @@ void addSegment(snake *);
 void logic(snake * , fruit *, int *);
 void updateSnake(snake *);
 void addHighScore();
-void beep();
+
+int isTerminalChanged(){
+    struct winsize w;
+    ioctl(STDOUT_FILENO,TIOCGWINSZ,&w);
+    
+    return (T_HEIGHT != w.ws_row || T_WIDTH != w.ws_col);
+}
+
+char **reInitScr(char **scr, snake * s, fruit *f){
+     // Free old buffer safely
+    for (int i = 0; i < HEIGHT; ++i) {
+        free(scr[i]);
+    }
+    free(scr);
+    scr = NULL;
+
+    // Get terminal size
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+
+    T_HEIGHT = w.ws_row;
+    T_WIDTH  = w.ws_col;
+
+    // Calculate new dimensions
+    int newHeight = (int)(T_HEIGHT * 0.80);
+    int newWidth  = (int)(T_WIDTH * 0.42);
+
+    if (newHeight <= 0) newHeight = 10;
+    if (newWidth <= 0) newWidth = 10;
+
+    // Allocate new buffer
+    scr = (char**)malloc(sizeof(char*) * newHeight);
+    for (int i = 0; i < newHeight; ++i) {
+        scr[i] = (char*)malloc(newWidth);
+    }
+
+    // Relocate snake
+
+    double xPercent = (double)s->head->x / (double)WIDTH;
+    double yPercent = (double)s->head->y / (double)HEIGHT;
+
+    s->head->x = (int)(xPercent * newWidth);
+    s->head->y = (int)(yPercent * newHeight);
+
+    // Clamp inside screen
+    if (s->head->x < 1) s->head->x = 1;
+    if (s->head->x >= newWidth-1) s->head->x = newWidth-2;
+    if (s->head->y < 1) s->head->y = 1;
+    if (s->head->y >= newHeight-1) s->head->y = newHeight-2;
+    updateSnake(s);
+    // Relocate fruit
+    double fxPercent = (double)f->x / (double)WIDTH;
+    double fyPercent = (double)f->y / (double)HEIGHT;
+
+    f->x = (int)(fxPercent * newWidth);
+    f->y = (int)(fyPercent * newHeight);
+
+    // Clamp fruit too
+    if (f->x < 1) f->x = 1;
+    if (f->x >= newWidth-1) f->x = newWidth-2;
+    if (f->y < 1) f->y = 1;
+    if (f->y >= newHeight-1) f->y = newHeight-2;
+
+    // Update globals LAST
+    HEIGHT = newHeight;
+    WIDTH  = newWidth;
+
+    return scr;
+}
 //this function is use to allocates the screen buffer in the memory
 char **initScr(){
+    struct winsize w;
+    if(ioctl(STDOUT_FILENO,TIOCGWINSZ,&w) == -1){
+        return NULL;
+    }
+    T_HEIGHT = w.ws_row;
+    T_WIDTH = w.ws_col;
+    WIDTH = (int)((42*T_WIDTH)/100.0);
+    HEIGHT = (int)((80*T_HEIGHT)/100.0);
     char **scr = (char**)malloc(sizeof(char*)*HEIGHT);
     for(int i = 0; i < HEIGHT; ++i){
           scr[i] = (char*)malloc(sizeof(char)*WIDTH);
@@ -60,7 +141,11 @@ char **initScr(){
     return scr;
 }
 //updates the screen buffer
-void updateScr(char **scr , snake *s , fruit * f){
+char** updateScr(char **scr , snake *s , fruit * f){
+     if(isTerminalChanged()){
+        
+        scr = reInitScr(scr,s,f);
+     }
       snake_segment *temp = s->head;
       for(int i = 0; i < HEIGHT; ++i){
             for(int j = 0; j < WIDTH; ++j){
@@ -78,6 +163,8 @@ void updateScr(char **scr , snake *s , fruit * f){
            temp = temp->next;
            ishead = 0;
     }
+
+    return scr;
 }
 
 void addHighScore(){
@@ -103,11 +190,11 @@ void addHighScore(){
 }
 // this function display the screen contents in the terminal
 void renderScr(char **screen){
-        
         printf("score : %d\t",score);
         printf("max score :%d\n",maxScore);
         for(int i = 0; i < HEIGHT; ++i){
            for(int j = 0; j < WIDTH; ++j){
+                
                  printf("%c",screen[i][j]);
            }
            printf("\n");
@@ -279,19 +366,26 @@ void updateSnake(snake *snake1){
 int main(){
 
       int gameOver = 0;
+      char **screen = initScr();
+
       snake *snake1 = initSnake();
       fruit f1;
       f1.x = snake1->head->x;
       f1.y = snake1->head->y-5;
-      char **screen = initScr();
+      
       system("clear");
       while(!gameOver){
+        fflush(stdout);
          updateSnake(snake1);
-         updateScr(screen , snake1 , &f1);
+         fflush(stdout);
+         screen = updateScr(screen , snake1 , &f1);
+         fflush(stdout);
          logic(snake1, &f1, &gameOver);
+         fflush(stdout);
          renderScr(screen);
+         fflush(stdout);
          input(snake1, &gameOver);
-         
+         fflush(stdout);
          system("clear");
       }
     
